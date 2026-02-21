@@ -16,8 +16,9 @@ from core.config import get_settings
 from core.logging_config import setup_logging
 from utils.env_loader import load_local_env
 
-# Global variable to store the worker process
+# Global variables to store subprocess handles
 worker_process = None
+ui_process = None
 
 
 def wait_for_redis(host="localhost", port=6379, timeout=20):
@@ -124,9 +125,56 @@ def start_arq_worker():
         sys.exit(1)
 
 
+def start_ui():
+    """Start the Morphik UI frontend as a subprocess."""
+    global ui_process
+    try:
+        ui_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ee", "ui-component")
+        if not os.path.isdir(ui_dir):
+            logging.warning(f"UI directory not found at {ui_dir}, skipping UI startup.")
+            return
+
+        logging.info("Starting Morphik UI...")
+
+        log_dir = os.path.join(os.getcwd(), "logs")
+        os.makedirs(log_dir, exist_ok=True)
+        ui_log_path = os.path.join(log_dir, "ui.log")
+        ui_log = open(ui_log_path, "a")
+
+        from datetime import datetime
+        timestamp = datetime.now().isoformat(timespec="seconds")
+        ui_log.write(f"\n\n--- UI started at {timestamp} ---\n\n")
+        ui_log.flush()
+
+        # Read the API port from morphik.toml to pass to the UI
+        with open("morphik.toml", "rb") as f:
+            config = tomli.load(f)
+        api_port = config.get("api", {}).get("port", 8000)
+
+        ui_env = dict(
+            os.environ,
+            NEXT_PUBLIC_API_BASE_URL=f"http://localhost:{api_port}",
+        )
+
+        # Use npm.cmd on Windows
+        npm_cmd = "npm.cmd" if sys.platform == "win32" else "npm"
+        ui_process = subprocess.Popen(
+            [npm_cmd, "run", "dev"],
+            cwd=ui_dir,
+            stdout=ui_log,
+            stderr=ui_log,
+            env=ui_env,
+        )
+        logging.info(f"Morphik UI started with PID: {ui_process.pid}")
+        logging.info(f"UI available at: http://localhost:3000")
+        logging.info(f"UI logs available at: {ui_log_path}")
+    except Exception as e:
+        logging.warning(f"Failed to start Morphik UI: {e}")
+
+
 def cleanup_processes():
-    """Stop the ARQ worker process on exit."""
-    global worker_process
+    """Stop the ARQ worker and UI processes on exit."""
+    global worker_process, ui_process
     if worker_process and worker_process.poll() is None:  # Check if process is still running
         logging.info(f"Stopping ARQ worker (PID: {worker_process.pid})...")
 
@@ -159,6 +207,18 @@ def cleanup_processes():
             worker_process.stdout.close()
         if hasattr(worker_process, "stderr") and worker_process.stderr:
             worker_process.stderr.close()
+
+    # Stop UI process
+    if ui_process and ui_process.poll() is None:
+        logging.info(f"Stopping Morphik UI (PID: {ui_process.pid})...")
+        ui_process.terminate()
+        try:
+            ui_process.wait(timeout=5)
+            logging.info("Morphik UI stopped gracefully.")
+        except subprocess.TimeoutExpired:
+            logging.warning("Morphik UI did not terminate gracefully, sending SIGKILL.")
+            ui_process.kill()
+            logging.info("Morphik UI killed.")
 
     # Optional: Add Redis container stop logic here if desired
     # try:
@@ -261,6 +321,11 @@ def main():
         help="Skip Redis container management (useful when running in Docker)",
     )
     parser.add_argument(
+        "--skip-ui",
+        action="store_true",
+        help="Skip starting the Morphik UI frontend",
+    )
+    parser.add_argument(
         "--workers",
         type=int,
         default=1,
@@ -305,6 +370,49 @@ def main():
                 component_list = [config["component"] for config in ollama_configs]
                 print(f"Ollama is running and will be used for: {', '.join(component_list)}")
 
+    # Pre-load Ollama models into VRAM (warmup)
+    if not args.skip_ollama_check:
+        ollama_configs = get_ollama_usage_info()
+        warmup_models = set()
+        try:
+            with open("morphik.toml", "rb") as f:
+                toml_config = tomli.load(f)
+            registered = toml_config.get("registered_models", {})
+            for cfg in ollama_configs:
+                component = cfg["component"]
+                base_url = cfg["base_url"]
+                # Find the model key for this component
+                if component == "parser.vision":
+                    model_key = toml_config.get("parser", {}).get("vision", {}).get("model")
+                elif component == "parser.contextual_chunking":
+                    model_key = toml_config.get("parser", {}).get("contextual_chunking_model")
+                else:
+                    model_key = toml_config.get(component, {}).get("model")
+                if model_key and model_key in registered:
+                    model_name = registered[model_key].get("model_name", "")
+                    # Strip ollama_chat/ or ollama/ prefix for the API call
+                    for prefix in ("ollama_chat/", "ollama/"):
+                        if model_name.startswith(prefix):
+                            model_name = model_name[len(prefix):]
+                            break
+                    warmup_models.add((base_url, model_name))
+            for base_url, model_name in warmup_models:
+                logging.info(f"Warming up Ollama model: {model_name} at {base_url}")
+                try:
+                    resp = requests.post(
+                        f"{base_url}/api/generate",
+                        json={"model": model_name, "prompt": "hi", "options": {"num_predict": 1, "num_ctx": 8192}, "stream": False},
+                        timeout=120,
+                    )
+                    if resp.status_code == 200:
+                        logging.info(f"Model {model_name} loaded into VRAM successfully")
+                    else:
+                        logging.warning(f"Warmup for {model_name} returned status {resp.status_code}")
+                except Exception as e:
+                    logging.warning(f"Warmup for {model_name} failed: {e}")
+        except Exception as e:
+            logging.warning(f"Model warmup skipped: {e}")
+
     # Load settings (this will validate all required env vars)
     settings = get_settings()
 
@@ -315,6 +423,10 @@ def main():
 
     # Start ARQ worker in the background
     start_arq_worker()
+
+    # Start Morphik UI in the background
+    if not args.skip_ui:
+        start_ui()
 
     # Start server (this is blocking)
     logging.info("Starting Uvicorn server...")

@@ -315,6 +315,7 @@ class LiteLLMCompletionModel(BaseCompletionModel):
                 options={
                     "temperature": request.temperature or 0.1,  # Lower temperature for structured output
                     "num_predict": request.max_tokens,
+                    "num_ctx": 32768,  # 32K context - max stable with ColPali + Qwen3 in VRAM
                 },
             )
 
@@ -379,7 +380,7 @@ class LiteLLMCompletionModel(BaseCompletionModel):
             if request.temperature is not None:
                 model_kwargs["temperature"] = request.temperature
             if request.max_tokens is not None:
-                model_kwargs["max_tokens"] = request.max_tokens
+                model_kwargs["max_completion_tokens"] = request.max_tokens
 
             # Add format forcing for structured output
             model_kwargs["response_format"] = {"type": "json_object"}
@@ -440,6 +441,7 @@ class LiteLLMCompletionModel(BaseCompletionModel):
             "num_predict": (
                 request.max_tokens if request.max_tokens is not None else -1
             ),  # Default to model's default if None
+            "num_ctx": 32768,  # 32K context - max stable with ColPali + Qwen3 in VRAM
         }
 
         try:
@@ -493,10 +495,11 @@ class LiteLLMCompletionModel(BaseCompletionModel):
         litellm_messages = [system_message] + history_messages + [user_message]
 
         # Prepare LiteLLM parameters
+        # Use max_completion_tokens (required by newer Azure/OpenAI models like GPT-5.2)
         model_params = {
             "model": model_name,
             "messages": litellm_messages,
-            "max_tokens": request.max_tokens,
+            "max_completion_tokens": request.max_tokens,
             "temperature": request.temperature,
             "num_retries": 3,
         }
@@ -549,10 +552,11 @@ class LiteLLMCompletionModel(BaseCompletionModel):
         litellm_messages = [system_message] + history_messages + [user_message]
 
         # Prepare LiteLLM parameters
+        # Use max_completion_tokens (required by newer Azure/OpenAI models like GPT-5.2)
         model_params = {
             "model": model_name,
             "messages": litellm_messages,
-            "max_tokens": request.max_tokens,
+            "max_completion_tokens": request.max_tokens,
             "temperature": request.temperature,
             "stream": True,  # Enable streaming
             "num_retries": 3,
@@ -599,6 +603,7 @@ class LiteLLMCompletionModel(BaseCompletionModel):
             "num_predict": (
                 request.max_tokens if request.max_tokens is not None else -1
             ),  # Default to model's default if None
+            "num_ctx": 32768,  # 32K context - max stable with ColPali + Qwen3 in VRAM
         }
 
         try:

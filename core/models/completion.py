@@ -40,7 +40,7 @@ class CompletionRequest(BaseModel):
 
     query: str
     context_chunks: List[str]
-    max_tokens: Optional[int] = 1000
+    max_tokens: Optional[int] = 16000
     temperature: Optional[float] = 0.3
     prompt_template: Optional[str] = None
     folder_name: Optional[str] = None

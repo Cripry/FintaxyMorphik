@@ -1,6 +1,6 @@
 [api]
 host = "0.0.0.0"
-port = 8000
+port = 57232
 reload = true
 
 [service]
@@ -20,8 +20,7 @@ openai_gpt4-1 = { model_name = "gpt-4.1" }
 openai_gpt4-1-mini = { model_name = "gpt-4.1-mini" }
 
 # Azure OpenAI models
-azure_gpt4 = { model_name = "gpt-4", api_base = "YOUR_AZURE_URL_HERE", api_version = "2023-05-15", deployment_id = "gpt-4-deployment" }
-azure_gpt35 = { model_name = "gpt-3.5-turbo", api_base = "YOUR_AZURE_URL_HERE", api_version = "2023-05-15", deployment_id = "gpt-35-turbo-deployment" }
+azure_gpt52 = { model_name = "azure/gpt-5.2", api_base = "https://denis-macfrb0k-swedencentral.cognitiveservices.azure.com/", api_version = "2025-04-01-preview", deployment_id = "gpt-5.2" }
 
 # Anthropic models
 claude_opus = { model_name = "claude-3-opus-20240229" }
@@ -42,6 +41,8 @@ ollama_qwen_vision = { model_name = "ollama_chat/qwen2.5vl:latest", api_base = "
 
 ollama_llama_vision = { model_name = "ollama_chat/llama3.2-vision", api_base = "http://localhost:11434", vision = true }
 ollama_qwen_1_5b = { model_name = "ollama_chat/qwen2:1.5b", api_base = "http://ollama:11434" }
+ollama_qwen72b = { model_name = "ollama_chat/qwen2.5:72b-instruct-q4_K_M", api_base = "http://localhost:11434" }
+ollama_qwen3_32b = { model_name = "ollama_chat/qwen3:32b-q8_0", api_base = "http://localhost:11434" }
 
 ollama_embedding = { model_name = "ollama/nomic-embed-text", api_base = "http://localhost:11434" }
 
@@ -53,15 +54,22 @@ lemonade_embedding = { model_name = "openai/nomic-embed-text-v1-GGUF", api_base 
 
 openai_embedding = { model_name = "text-embedding-3-small" }
 openai_embedding_large = { model_name = "text-embedding-3-large" }
-azure_embedding = { model_name = "text-embedding-ada-002", api_base = "YOUR_AZURE_URL_HERE", api_version = "2023-05-15", deployment_id = "embedding-ada-002" }
+azure_embedding = { model_name = "azure/text-embedding-3-large", api_base = "https://denis-macfrb0k-swedencentral.cognitiveservices.azure.com/", api_version = "2023-05-15", deployment_id = "text-embedding-3-large" }
 
 
 #### Component configurations ####
 
 [completion]
-model = "ollama_qwen_vision" #"openai_gpt4-1-mini"  # Reference to a key in registered_models
-default_max_tokens = "1000"
+model = "ollama_qwen3_32b"  # Local Qwen3-32B Q8_0 on GPU (~35GB VRAM)
+default_max_tokens = "16000"
 default_temperature = 0.3
+# Ollama runtime settings (configured via system env vars):
+#   OLLAMA_FLASH_ATTENTION=1    — faster prompt eval, reduced KV cache memory
+#   OLLAMA_KEEP_ALIVE=-1        — model stays permanently in VRAM (no unload)
+#   OLLAMA_NUM_PARALLEL=1       — single request at a time (allows 32K context with ColPali)
+#   OLLAMA_MODELS=E:\Fintaxy\models\ollama  — model storage on E: drive
+# Context window: num_ctx=32768 (set in litellm_completion.py, max stable alongside ColPali)
+# Thinking mode: enabled (Qwen3 hybrid thinking, mandatory for quality)
 
 [database]
 provider = "postgres"
@@ -75,15 +83,15 @@ max_retries = 3          # Number of retries for database operations
 retry_delay = 1.0        # Initial delay between retries in seconds
 
 [embedding]
-model = "ollama_embedding"  # Reference to registered model
+model = "ollama_embedding"  # Local nomic-embed-text via Ollama
 dimensions = 768
 similarity_metric = "cosine"
 
 [parser]
-chunk_size = 6000
-chunk_overlap = 300
+chunk_size = 8000       # Larger chunks for financial tables/sections integrity
+chunk_overlap = 500     # Higher overlap to avoid losing info at chunk boundaries
 use_contextual_chunking = false
-contextual_chunking_model = "ollama_qwen_vision"  # Reference to a key in registered_models
+contextual_chunking_model = "ollama_qwen3_32b"  # Local Qwen3-32B Q8_0
 
 [parser.xml]
 max_tokens = 350
@@ -91,20 +99,20 @@ preferred_unit_tags = ["SECTION", "Section", "Article", "clause"]
 ignore_tags = ["TOC", "INDEX"]
 
 [document_analysis]
-model = "ollama_qwen_vision"  # Reference to a key in registered_models
+model = "ollama_qwen3_32b"  # Local Qwen3-32B Q8_0
 
 [parser.vision]
-model = "ollama_qwen_vision"  # Reference to a key in registered_models
+model = "ollama_qwen3_32b"  # Local Qwen3-32B Q8_0
 frame_sample_rate = -1  # Set to -1 to disable frame captioning
 
 [reranker]
-use_reranker = false
+use_reranker = true
 provider = "flag"
 model_name = "BAAI/bge-reranker-large"
 query_max_length = 256
 passage_max_length = 512
 use_fp16 = true
-device = "mps" # use "cpu" if on docker and using a mac, "cuda" if cuda enabled device
+device = "cuda" # NVIDIA RTX PRO 6000
 
 [storage]
 provider = "local"
@@ -131,8 +139,8 @@ provider = "pgvector"
 provider = "postgres"  # "morphik" # "postgres"  # "morphik" # "postgres"  # "postgres" or "morphik" for fast implementation
 
 [redis]
-url = "redis://localhost:6379/0"  # Full Redis URL (takes precedence over host/port)
-host = "localhost"
+url = "redis://127.0.0.1:6379/0"  # Full Redis URL (takes precedence over host/port)
+host = "127.0.0.1"
 port = 6379
 
 [worker]
@@ -141,6 +149,21 @@ colpali_store_batch_size = 16  # Batch size for ColPali vector storage
 
 [pdf]
 colpali_pdf_dpi = 150  # DPI for PDF to image conversion in ColPali processing
+
+[ollama]
+# Ollama GPU configuration for NVIDIA RTX PRO 6000 (98GB VRAM)
+# These are set as system environment variables (User scope):
+#   OLLAMA_FLASH_ATTENTION = 1       # Enable Flash Attention for faster inference
+#   OLLAMA_KEEP_ALIVE = -1           # Keep models permanently loaded in VRAM
+#   OLLAMA_NUM_PARALLEL = 1          # Single parallel request (maximizes context window)
+#   OLLAMA_MODELS = E:\Fintaxy\models\ollama  # Model storage path
+# VRAM allocation (~58GB used, ~40GB free):
+#   Qwen3-32B Q8_0:  ~35GB (completion, document_analysis, parser.vision)
+#   ColPali:         ~21GB (visual embeddings)
+#   nomic-embed-text: ~600MB (text embeddings)
+#   BGE-reranker:    ~1GB (reranking)
+# Context: num_ctx=65536 with Flash Attention
+# Thinking: always enabled (Qwen3 hybrid thinking mode, mandatory for quality)
 
 [morphik]
 enable_colpali = true
