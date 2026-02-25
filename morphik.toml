@@ -60,16 +60,9 @@ azure_embedding = { model_name = "azure/text-embedding-3-large", api_base = "htt
 #### Component configurations ####
 
 [completion]
-model = "ollama_qwen3_32b"  # Local Qwen3-32B Q8_0 on GPU (~35GB VRAM)
+model = "azure_gpt52"  # Azure OpenAI GPT-5.2 (Sweden Central)
 default_max_tokens = "16000"
 default_temperature = 0.3
-# Ollama runtime settings (configured via system env vars):
-#   OLLAMA_FLASH_ATTENTION=1    — faster prompt eval, reduced KV cache memory
-#   OLLAMA_KEEP_ALIVE=-1        — model stays permanently in VRAM (no unload)
-#   OLLAMA_NUM_PARALLEL=1       — single request at a time (allows 32K context with ColPali)
-#   OLLAMA_MODELS=E:\Fintaxy\models\ollama  — model storage on E: drive
-# Context window: num_ctx=32768 (set in litellm_completion.py, max stable alongside ColPali)
-# Thinking mode: enabled (Qwen3 hybrid thinking, mandatory for quality)
 
 [database]
 provider = "postgres"
@@ -83,15 +76,15 @@ max_retries = 3          # Number of retries for database operations
 retry_delay = 1.0        # Initial delay between retries in seconds
 
 [embedding]
-model = "ollama_embedding"  # Local nomic-embed-text via Ollama
-dimensions = 768
+model = "azure_embedding"  # Azure text-embedding-3-large (3072 dims)
+dimensions = 3072
 similarity_metric = "cosine"
 
 [parser]
-chunk_size = 8000       # Larger chunks for financial tables/sections integrity
-chunk_overlap = 500     # Higher overlap to avoid losing info at chunk boundaries
+chunk_size = 6000       # text-embedding-3-large supports 8191 tokens
+chunk_overlap = 500     # Overlap to avoid losing info at chunk boundaries
 use_contextual_chunking = false
-contextual_chunking_model = "ollama_qwen3_32b"  # Local Qwen3-32B Q8_0
+contextual_chunking_model = "azure_gpt52"  # Azure OpenAI GPT-5.2
 
 [parser.xml]
 max_tokens = 350
@@ -99,10 +92,10 @@ preferred_unit_tags = ["SECTION", "Section", "Article", "clause"]
 ignore_tags = ["TOC", "INDEX"]
 
 [document_analysis]
-model = "ollama_qwen3_32b"  # Local Qwen3-32B Q8_0
+model = "azure_gpt52"  # Azure OpenAI GPT-5.2
 
 [parser.vision]
-model = "ollama_qwen3_32b"  # Local Qwen3-32B Q8_0
+model = "azure_gpt52"  # Azure OpenAI GPT-5.2
 frame_sample_rate = -1  # Set to -1 to disable frame captioning
 
 [reranker]

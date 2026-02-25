@@ -421,8 +421,13 @@ def main():
         logging.error("Cannot start server without Redis. Please ensure Redis is running.")
         sys.exit(1)
 
-    # Start ARQ worker in the background
-    start_arq_worker()
+    # Start ARQ worker in the background (delayed to avoid CUDA segfault on Windows)
+    import threading
+    def _delayed_arq_start():
+        import time
+        time.sleep(30)  # Wait for main process to finish CUDA/ColPali init
+        start_arq_worker()
+    threading.Thread(target=_delayed_arq_start, daemon=True).start()
 
     # Start Morphik UI in the background
     if not args.skip_ui:
