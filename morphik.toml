@@ -135,6 +135,7 @@ provider = "postgres"  # "morphik" # "postgres"  # "morphik" # "postgres"  # "po
 url = "redis://127.0.0.1:6379/0"  # Full Redis URL (takes precedence over host/port)
 host = "127.0.0.1"
 port = 6379
+key_prefix = "morphik"  # Prefix for all Redis keys (multi-app isolation)
 
 [worker]
 arq_max_jobs = 1  # Maximum concurrent jobs for ARQ worker

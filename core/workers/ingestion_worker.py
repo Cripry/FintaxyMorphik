@@ -1720,6 +1720,10 @@ class WorkerSettings:
     # Use robust Redis settings that handle connection issues
     redis_settings = redis_settings_from_env()
 
+    # Key prefixing for multi-app Redis isolation
+    queue_name = f"{settings.REDIS_KEY_PREFIX}:arq:queue"
+    health_check_key = f"{settings.REDIS_KEY_PREFIX}:arq:health-check"
+
     # Result storage settings
     keep_result_ms = 15 * 60 * 1000  # Keep results for 15 minutes
 

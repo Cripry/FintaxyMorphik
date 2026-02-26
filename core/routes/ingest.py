@@ -6,6 +6,7 @@ import arq
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 
 from core.auth_utils import verify_token
+from core.config import get_settings
 from core.dependencies import get_redis_pool
 from core.models.auth import AuthContext
 from core.models.documents import Document
@@ -39,6 +40,7 @@ from core.utils.typed_metadata import TypedMetadataError
 
 router = APIRouter(prefix="/ingest", tags=["Ingestion"])
 logger = logging.getLogger(__name__)
+settings = get_settings()
 telemetry = TelemetryService()
 
 MORPHIK_ON_THE_FLY_MAX_DOCUMENT_BYTES = 20 * 1024 * 1024  # 20 MB limit for inline uploads to Morphik On-the-Fly
@@ -350,7 +352,9 @@ async def requeue_ingest_jobs(
                 folder_leaf=doc.folder_name,
                 end_user_id=doc.end_user_id,
             )
-            job = await redis.enqueue_job("process_ingestion_job", **job_payload)
+            job = await redis.enqueue_job(
+                "process_ingestion_job", **job_payload, _queue_name=f"{settings.REDIS_KEY_PREFIX}:arq:queue"
+            )
 
             if job is None:
                 results.append(

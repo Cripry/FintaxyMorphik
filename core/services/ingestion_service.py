@@ -604,7 +604,9 @@ class IngestionService:
                 folder_leaf=folder_leaf,
                 end_user_id=end_user_id,
             )
-            job = await redis.enqueue_job("process_ingestion_job", **job_payload)
+            job = await redis.enqueue_job(
+                "process_ingestion_job", **job_payload, _queue_name=f"{settings.REDIS_KEY_PREFIX}:arq:queue"
+            )
             if job is None:
                 logger.info("Connector file ingestion job already queued (doc_id=%s)", doc.external_id)
             else:
@@ -746,7 +748,9 @@ class IngestionService:
                 folder_leaf=doc.folder_name,
                 end_user_id=doc.end_user_id,
             )
-            job = await redis.enqueue_job("process_ingestion_job", **job_payload)
+            job = await redis.enqueue_job(
+                "process_ingestion_job", **job_payload, _queue_name=f"{settings.REDIS_KEY_PREFIX}:arq:queue"
+            )
             if job is None:
                 logger.info("Update ingestion job already queued (doc_id=%s)", doc.external_id)
             else:

@@ -678,7 +678,7 @@ async def query_completion(
         history_key = None
         history: List[Dict[str, Any]] = []
         if request.chat_id:
-            history_key = f"chat:{request.chat_id}"
+            history_key = f"{settings.REDIS_KEY_PREFIX}:chat:{request.chat_id}"
             stored = await redis.get(history_key)
             if stored:
                 try:
@@ -858,7 +858,7 @@ async def get_chat_history(
     redis: arq.ArqRedis = Depends(get_redis_pool),
 ):
     """Retrieve the message history for a chat conversation."""
-    history_key = f"chat:{chat_id}"
+    history_key = f"{settings.REDIS_KEY_PREFIX}:chat:{chat_id}"
     stored = await redis.get(history_key)
     if not stored:
         db_hist = await document_service.db.get_chat_history(chat_id, auth.user_id, auth.app_id)

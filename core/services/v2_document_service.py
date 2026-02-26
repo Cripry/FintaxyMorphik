@@ -703,7 +703,9 @@ class V2DocumentService:
                     end_user_id=end_user_id,
                     force_plain_text=force_plain_text,
                 )
-                job = await redis.enqueue_job("process_v2_ingestion_job", **job_payload)
+                job = await redis.enqueue_job(
+                    "process_v2_ingestion_job", **job_payload, _queue_name=f"{settings.REDIS_KEY_PREFIX}:arq:queue"
+                )
                 if job is None:
                     logger.info("V2 ingestion job already queued (doc_id=%s)", doc.external_id)
                 else:

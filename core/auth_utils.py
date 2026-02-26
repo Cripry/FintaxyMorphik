@@ -21,8 +21,8 @@ __all__ = [
 # Load settings once at import time
 settings = get_settings()
 
-_ACTIVE_CACHE_PREFIX = "auth:app_active:"
-_REVOKED_CACHE_PREFIX = "auth:app_revoked:"
+_ACTIVE_CACHE_PREFIX = f"{settings.REDIS_KEY_PREFIX}:auth:app_active:"
+_REVOKED_CACHE_PREFIX = f"{settings.REDIS_KEY_PREFIX}:auth:app_revoked:"
 
 
 def _active_cache_key(app_id: str) -> str:

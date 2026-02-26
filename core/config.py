@@ -146,6 +146,7 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379/0"
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
+    REDIS_KEY_PREFIX: str = "morphik"
 
     # Worker configuration
     ARQ_MAX_JOBS: int = 1
@@ -404,6 +405,7 @@ def get_settings() -> Settings:
                 "REDIS_URL": redis_cfg.get("url", "redis://localhost:6379/0"),
                 "REDIS_HOST": redis_cfg.get("host", "localhost"),
                 "REDIS_PORT": redis_cfg.get("port", 6379),
+                "REDIS_KEY_PREFIX": redis_cfg.get("key_prefix", "morphik"),
             }
         )
 
