@@ -1,6 +1,7 @@
 import importlib.util
 import io
 import logging
+import os
 import time
 from contextvars import ContextVar
 from typing import Any, Dict, List, Tuple, Union
@@ -24,7 +25,7 @@ _INGEST_METRICS: ContextVar[Dict[str, Any]] = ContextVar("_colpali_ingest_metric
 
 class ColpaliEmbeddingModel(BaseEmbeddingModel):
     def __init__(self):
-        device = "mps" if torch.backends.mps.is_available() else "cuda" if torch.cuda.is_available() else "cpu"
+        device = os.environ.get("COLPALI_DEVICE", "mps" if torch.backends.mps.is_available() else "cuda" if torch.cuda.is_available() else "cpu")
         logger.info(f"Initializing ColpaliEmbeddingModel with device: {device}")
         start_time = time.time()
 

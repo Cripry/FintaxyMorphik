@@ -132,9 +132,10 @@ provider = "pgvector"
 provider = "postgres"  # "morphik" # "postgres"  # "morphik" # "postgres"  # "postgres" or "morphik" for fast implementation
 
 [redis]
-url = "redis://127.0.0.1:6379/0"  # Full Redis URL (takes precedence over host/port)
+url = "redis://:953eae3c103283753b5de75b3bd702335989f00515ea393d@127.0.0.1:6379/0"  # Full Redis URL (takes precedence over host/port)
 host = "127.0.0.1"
 port = 6379
+password = "953eae3c103283753b5de75b3bd702335989f00515ea393d"
 key_prefix = "morphik"  # Prefix for all Redis keys (multi-app isolation)
 
 [worker]

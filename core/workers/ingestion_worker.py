@@ -1697,6 +1697,7 @@ def redis_settings_from_env() -> RedisSettings:
     return RedisSettings(
         host=settings.REDIS_HOST,
         port=settings.REDIS_PORT,
+        password=getattr(settings, "REDIS_PASSWORD", None) or None,
         database=int(url.path.lstrip("/") or 0),
         conn_timeout=5,  # Increased connection timeout (seconds)
         conn_retries=15,  # More retries for transient connection issues
